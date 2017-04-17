@@ -343,8 +343,25 @@ gnuv3_rtti_type (struct value *value,
      type_info object itself to get the class name.  But this way
      should work just as well, and doesn't read target memory.  */
   vtable_symbol_name = vtable_symbol->demangled_name ();
-  if (vtable_symbol_name == NULL
-      || !startswith (vtable_symbol_name, "vtable for "))
+  if (vtable_symbol_name && startswith (vtable_symbol_name, "vtable for "))
+    class_name = vtable_symbol_name + 11;
+  else if (vtable_symbol_name && startswith (vtable_symbol_name, "construction vtable for "))
+    {
+      const char *tail;
+
+      class_name = vtable_symbol_name + 24;
+      tail = strstr(class_name, "-in-");
+      if (tail != NULL)
+        {
+          char *copy;
+
+          copy = (char *) alloca (tail - class_name + 1);
+          memcpy (copy, class_name, tail - class_name);
+          copy[tail - class_name] = '\0';
+          class_name = copy;
+        }
+    }
+  else
     {
       warning (_("can't find linker symbol for virtual table for `%s' value"),
 	       TYPE_SAFE_NAME (values_type));
@@ -352,7 +369,6 @@ gnuv3_rtti_type (struct value *value,
 	warning (_("  found `%s' instead"), vtable_symbol_name);
       return NULL;
     }
-  class_name = vtable_symbol_name + 11;
 
   /* Strip off @plt and version suffixes.  */
   atsign = strchr (class_name, '@');
